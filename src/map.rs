@@ -3,6 +3,10 @@ use specs::Entity;
 use super::{Rect};
 use std::cmp::{min, max};
 
+pub const MAP_WIDTH: usize = 80;
+const MAP_HEIGHT: usize = 43;
+const TILE_COUNT: usize = MAP_HEIGHT * MAP_WIDTH;
+
 #[derive(PartialEq, Copy, Clone)]
 pub enum TileType {
     Wall,
@@ -27,14 +31,14 @@ impl Map {
 
     pub fn new() -> Self {
         let mut map = Self {
-            tiles: vec![TileType::Wall; 80*50],
+            tiles: vec![TileType::Wall; TILE_COUNT],
             rooms: Vec::new(),
-            width: 80,
-            height: 50,
-            revealed_tiles: vec![false; 80*50],
-            visible_tiles: vec![false; 80*50],
-            blocked: vec![false; 80*50],
-            tile_content: vec![Vec::new(); 80*50],
+            width: MAP_WIDTH as i32,
+            height: MAP_HEIGHT as i32,
+            revealed_tiles: vec![false; TILE_COUNT],
+            visible_tiles: vec![false; TILE_COUNT],
+            blocked: vec![false; TILE_COUNT],
+            tile_content: vec![Vec::new(); TILE_COUNT],
         };
 
         const MAX_ROOMS: i32 = 30;
@@ -81,7 +85,7 @@ impl Map {
     fn apply_horizontal_tunnel(&mut self, x1: i32, x2: i32, y: i32) {
         for x in min(x1, x2) ..= max(x1, x2) {
             let idx = self.xy_idx(x, y);
-            if idx > 0 && idx < 80*50 {
+            if idx > 0 && idx < TILE_COUNT {
                 self.tiles[idx] = TileType::Floor;
             }
         }
@@ -90,7 +94,7 @@ impl Map {
     fn apply_vertical_tunnel(&mut self, y1: i32, y2: i32, x: i32) {
         for y in min(y1, y2) ..= max(y1, y2) {
             let idx = self.xy_idx(x, y);
-            if idx > 0 && idx < 80*50 {
+            if idx > 0 && idx < TILE_COUNT {
                 self.tiles[idx] = TileType::Floor;
             }
         }
