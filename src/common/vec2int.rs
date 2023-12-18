@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use super::{HEIGHT, WIDTH};
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Copy, PartialEq)]
 pub struct Vec2Int {
     pub x: i32,
     pub y: i32,

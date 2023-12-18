@@ -1,13 +1,14 @@
 use bevy::prelude::*;
 
 use crate::{
-    common::{components::Position, TileType, Vec2Int},
+    common::{components::Position, TileType, Vec2Int, states::GameState},
     map_generator::Map,
 };
 
 use super::Player;
 
 pub fn move_player(
+    mut state: ResMut<NextState<GameState>>,
     keyboard_input: Res<Input<KeyCode>>,
     map: Res<Map>,
     mut players: Query<&mut Position, With<Player>>,
@@ -27,6 +28,9 @@ pub fn move_player(
         let idx = map.xy_idx(new_pos.x, new_pos.y);
         if map.tiles[idx] == TileType::Floor {
             position.0 = new_pos;
+        }
+        if direction != Vec2Int::ZERO {
+            state.set(GameState::EnemyTurn);
         }
     }
 }

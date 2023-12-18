@@ -5,4 +5,5 @@ pub enum GameState {
     #[default]
     StartScreen,
     PlayerTurn,
+    EnemyTurn,
 }

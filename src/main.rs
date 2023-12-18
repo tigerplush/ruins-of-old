@@ -1,14 +1,16 @@
-use bevy::prelude::*;
+use bevy::{prelude::*, log::LogPlugin};
 
 #[cfg(feature = "debug")]
 use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
 use common::{resources::CharsetAsset, states::GameState};
+use enemy::EnemyPlugin;
 use map_generator::MapGeneratorPlugin;
 use player::PlayerPlugin;
 use system::render;
 
 mod common;
+mod enemy;
 mod map_generator;
 mod player;
 mod system;
@@ -44,16 +46,29 @@ fn switch_state(mut state: ResMut<NextState<GameState>>) {
 fn main() {
     let mut app = App::new();
 
-    app.add_state::<GameState>().add_plugins(DefaultPlugins.set(
+    app.add_state::<GameState>()
+        .add_plugins(DefaultPlugins.set(
         // This sets image filtering to nearest
         // This is done to prevent textures with low resolution (e.g. pixel art) from being blurred
         // by linear filtering.
         ImagePlugin::default_nearest(),
-    ));
+    ).disable::<LogPlugin>());
+
+
+    #[cfg(not(feature = "debug"))]
+    app.add_plugins(LogPlugin::default());
 
     #[cfg(feature = "debug")]
-    app.add_plugins(WorldInspectorPlugin::new());
-    app.add_plugins((PlayerPlugin, MapGeneratorPlugin))
+    app.add_plugins(WorldInspectorPlugin::new())
+        .add_plugins(LogPlugin {
+            level: bevy::log::Level::DEBUG,
+            ..default()
+        });
+    app.add_plugins((
+            PlayerPlugin,
+            MapGeneratorPlugin,
+            EnemyPlugin,
+        ))
         .add_systems(Startup, setup)
         .add_systems(
             Update,
