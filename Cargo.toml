@@ -11,3 +11,5 @@ debug = ["dep:bevy-inspector-egui"]
 [dependencies]
 bevy = "0.12.1"
 bevy-inspector-egui = { version = "0.21.0", optional = true }
+bresenham = "0.1.1"
+rand = "0.8.5"

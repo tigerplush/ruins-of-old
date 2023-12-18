@@ -1,6 +1,12 @@
 use bevy::prelude::*;
 
-use crate::{common::{states::GameState, resources::CharsetAsset, WIDTH, HEIGHT, components::Position, Vec2Int}, MainCamera};
+use crate::{
+    common::{
+        components::Position, resources::CharsetAsset, states::GameState, Vec2Int, HEIGHT, WIDTH,
+    },
+    map_generator::{Map, viewshed::Viewshed},
+    MainCamera,
+};
 
 use self::input::move_player;
 
@@ -9,21 +15,18 @@ mod input;
 pub struct PlayerPlugin;
 
 #[derive(Component)]
-struct Player;
+pub struct Player;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app
-            .add_systems(OnExit(GameState::StartScreen), spawn_player)
+        app.add_systems(OnExit(GameState::StartScreen), spawn_player)
             .add_systems(PostUpdate, render_camera)
             .add_systems(Update, move_player.run_if(in_state(GameState::PlayerTurn)));
     }
 }
 
-fn spawn_player(
-    atlas: Res<CharsetAsset>,
-    mut commands: Commands,
-) {
+fn spawn_player(map: Res<Map>, atlas: Res<CharsetAsset>, mut commands: Commands) {
+    let (x, y) = map.rooms.first().unwrap().center();
     commands
         .spawn(SpriteSheetBundle {
             texture_atlas: atlas.atlas.clone(),
@@ -37,9 +40,9 @@ fn spawn_player(
         })
         .insert(Player)
         .insert(Name::from("Player"))
-        .insert(Position(Vec2Int::new(21, 16)));
+        .insert(Position(Vec2Int::new(x, y)))
+        .insert(Viewshed {range: 8.0});
 }
-
 
 fn render_camera(
     players: Query<&Transform, (With<Player>, Without<MainCamera>)>,

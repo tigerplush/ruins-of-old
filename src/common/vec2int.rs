@@ -2,7 +2,7 @@ use std::ops::Add;
 
 use bevy::prelude::*;
 
-use super::{WIDTH, HEIGHT};
+use super::{HEIGHT, WIDTH};
 
 #[derive(Clone, Copy)]
 pub struct Vec2Int {
@@ -12,10 +12,7 @@ pub struct Vec2Int {
 
 impl Vec2Int {
     pub const fn new(x: i32, y: i32) -> Self {
-        Self {
-            x,
-            y,
-        }
+        Self { x, y }
     }
 
     pub const ZERO: Self = Self::new(0, 0);
@@ -24,19 +21,17 @@ impl Vec2Int {
     pub const UP: Self = Self::new(0, 1);
     pub const DOWN: Self = Self::new(0, -1);
 
-    pub const DIRECTIONS: [Self; 4] = [
-        Self::LEFT,
-        Self::RIGHT,
-        Self::UP,
-        Self::DOWN,
-    ];
+    pub const DIRECTIONS: [Self; 4] = [Self::LEFT, Self::RIGHT, Self::UP, Self::DOWN];
 
     pub fn to_world(&self) -> Vec3 {
-        Vec3::new(
-            self.x as f32 * WIDTH,
-            self.y as f32 * HEIGHT,
-            1.0
-        )
+        Vec3::new(self.x as f32 * WIDTH, self.y as f32 * HEIGHT, 1.0)
+    }
+
+    pub fn distance(&self, other: &Self) -> f32 {
+        let x = other.x - self.x;
+        let y = other.y - self.y;
+        let squared = x.pow(2) + y.pow(2);
+        (squared as f32).sqrt()
     }
 }
 

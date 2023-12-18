@@ -1,87 +1,58 @@
 use bevy::prelude::*;
 
-use crate::common::{resources::{Map, CharsetAsset}, TileType, states::GameState, WIDTH, HEIGHT, Rect};
+use crate::common::{resources::CharsetAsset, states::GameState, TileType, HEIGHT, WIDTH, Vec2Int, ToWorld};
+
+pub use self::map::Map;
+use self::viewshed::{check_player_viewshed, render_player_viewshed};
+
+mod map;
+pub mod viewshed;
 
 pub struct MapGeneratorPlugin;
 
 impl Plugin for MapGeneratorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnExit(GameState::StartScreen), generate_map);
+        app.add_systems(OnEnter(GameState::StartScreen), generate_map)
+            .add_systems(Update, (
+                check_player_viewshed,
+                render_player_viewshed,
+            ));
     }
 }
 
-fn generate_map(
-    atlas: Res<CharsetAsset>,
-    mut commands: Commands,
-) {
-    let tiles = generate_rooms();
+#[derive(Component)]
+pub struct Tile(Vec2Int);
 
-    commands.spawn((
+fn generate_map(atlas: Res<CharsetAsset>, mut commands: Commands) {
+    let map = Map::new();
+
+    commands
+        .spawn((
             Name::from("Tilemap"),
             TransformBundle::default(),
             InheritedVisibility::default(),
         ))
         .with_children(|parent| {
-            for (idx, tile) in tiles.clone().iter().enumerate() {
+            for (idx, tile) in map.tiles.clone().iter().enumerate() {
                 let char = match tile {
                     TileType::Floor => '.',
                     TileType::Wall => '#',
                 };
+                let (x, y) = map.idx_xy(idx);
                 parent.spawn(SpriteSheetBundle {
                     texture_atlas: atlas.atlas.clone(),
                     sprite: TextureAtlasSprite {
                         custom_size: Some(Vec2::new(1.0, 1.0)),
                         index: char as usize,
+                        color: Color::rgba(0.0, 0.0, 0.0, 0.0),
                         ..Default::default()
                     },
-                    transform: Transform::from_scale(Vec3::new(WIDTH, HEIGHT, 1.0)).with_translation(idx_xy(idx)),
+                    transform: Transform::from_scale(Vec3::new(WIDTH, HEIGHT, 1.0))
+                        .with_translation((x, y).to_world()),
                     ..Default::default()
-                });
+                })
+                .insert(Tile(Vec2Int::new(x, y)));
             }
         });
-    commands.insert_resource(Map {
-        tiles,
-    });
-}
-
-pub fn xy_idx(x: i32, y: i32) -> usize {
-    (y as usize * 80) + x as usize
-}
-
-fn idx_xy(idx: usize) -> Vec3 {
-    let x = idx % 80;
-    let y = idx / 80;
-    Vec3::new(x as f32 * WIDTH, y as f32 * HEIGHT, 1.0)
-}
-
-fn generate_empty_tiles() -> Vec<TileType> {
-    let mut tiles = vec![TileType::Floor; 80*50];
-
-    for x in 0..80 {
-        tiles[xy_idx(x, 0)] = TileType::Wall;
-        tiles[xy_idx(x, 49)] = TileType::Wall;
-    }
-    for y in 0..50 {
-        tiles[xy_idx(0, y)] = TileType::Wall;
-        tiles[xy_idx(79, y)] = TileType::Wall;
-    }
-    tiles
-}
-
-fn generate_rooms() -> Vec<TileType> {
-    let mut tiles = vec![TileType::Wall; 80*50];
-
-    let room1 = Rect::new(20, 15, 10, 15);
-    let room2 = Rect::new(35, 15, 10, 15);
-    apply_room_to_map(&room1, &mut tiles);
-    apply_room_to_map(&room2, &mut tiles);
-    tiles
-}
-
-fn apply_room_to_map(room: &Rect, map: &mut [TileType]) {
-    for y in room.y + 1..= room.y2 {
-        for x in room.x + 1..= room.x2 {
-            map[xy_idx(x, y)] = TileType::Floor;
-        }
-    }
+    commands.insert_resource(map);
 }
