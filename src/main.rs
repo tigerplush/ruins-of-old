@@ -1,194 +1,68 @@
-use rltk::{Rltk, RGB, GameState, Point};
-use specs::prelude::*;
+use bevy::prelude::*;
 
-mod components;
-use components::*;
+#[cfg(feature = "debug")]
+use bevy_inspector_egui::quick::WorldInspectorPlugin;
 
-mod map;
-use map::*;
+use common::{resources::CharsetAsset, states::GameState};
+use map_generator::MapGeneratorPlugin;
+use player::PlayerPlugin;
+use system::render;
 
+mod common;
+mod map_generator;
 mod player;
-use player::*;
+mod system;
 
-mod rect;
-pub use rect::Rect;
+#[derive(Component)]
+struct MainCamera;
 
-mod visibility_system;
-use visibility_system::VisibilitySystem;
 
-mod monster_ai_system;
-use monster_ai_system::*;
-
-mod map_indexing_system;
-use map_indexing_system::*;
-
-mod damage_system;
-use damage_system::*;
-
-mod melee_combat_system;
-use melee_combat_system::*;
-
-mod inventory_system;
-use inventory_system::*;
-
-mod gui;
-
-mod gamelog;
-
-mod spawner;
-
-pub struct State {
-    pub ecs: World,
-}
-
-#[derive(PartialEq, Copy, Clone)]
-pub enum RunState {
-    AwaitingInput,
-    PreRun,
-    PlayerTurn,
-    MonsterTurn,
-    ShowInventory,
-}
-
-impl State {
-    fn run_systems(&mut self) {
-        let mut vis = VisibilitySystem;
-        vis.run_now(&self.ecs);
-
-        let mut mob = MonsterAi;
-        mob.run_now(&self.ecs);
-
-        let mut mapindex = MapIndexingSystem;
-        mapindex.run_now(&self.ecs);
-
-        let mut melee_combat_system = MeleeCombatSystem;
-        melee_combat_system.run_now(&self.ecs);
-
-        let mut damage_system = DamageSystem;
-        damage_system.run_now(&self.ecs);
-
-        let mut pickup = ItemCollectionSystem;
-        pickup.run_now(&self.ecs);
-
-        let mut potions = PotionUseSystem;
-        potions.run_now(&self.ecs);
-
-        self.ecs.maintain();
-    }
-}
-
-impl GameState for State {
-    fn tick(&mut self, ctx: &mut Rltk) {
-        ctx.cls();
-
-        let mut new_runstate;
-        {
-            let runstate = self.ecs.fetch::<RunState>();
-            new_runstate = *runstate;
-        }
-
-        match new_runstate {
-            RunState::PreRun => {
-                self.run_systems();
-                self.ecs.maintain();
-                new_runstate = RunState::AwaitingInput;
-            },
-            RunState::AwaitingInput => {
-                new_runstate = player_input(self, ctx);
-            },
-            RunState::PlayerTurn => {
-                self.run_systems();
-                self.ecs.maintain();
-                new_runstate = RunState::MonsterTurn;
-            },
-            RunState::MonsterTurn => {
-                self.run_systems();
-                self.ecs.maintain();
-                new_runstate = RunState::AwaitingInput;
-            },
-            RunState::ShowInventory => {
-                let result = gui::show_inventory(self, ctx);
-                match result.0 {
-                    gui::ItemMenuResult::Cancel => new_runstate = RunState::AwaitingInput,
-                    gui::ItemMenuResult::NoResponse => {},
-                    gui::ItemMenuResult::Selected => {
-                        let item_entity = result.1.unwrap();
-                        let mut intent = self.ecs.write_storage::<WantsToDrinkPotion>();
-                        intent.insert(*self.ecs.fetch::<Entity>(), WantsToDrinkPotion { potion: item_entity }).expect("Unable to insert intent");
-                        new_runstate = RunState::AwaitingInput;
-                    }
-                }
-            }
-        }
-
-        {
-            let mut runwriter = self.ecs.write_resource::<RunState>();
-            *runwriter = new_runstate;
-        }
-        damage_system::delete_dead(&mut self.ecs);
-
-        let map = self.ecs.fetch::<Map>();
-        map.draw(ctx);
-
-        let positions = self.ecs.read_storage::<Position>();
-        let renderables = self.ecs.read_storage::<Renderable>();
-        let map = self.ecs.fetch::<Map>();
-
-        for (pos, render) in (&positions, &renderables).join() {
-            let idx = map.xy_idx(pos.x, pos.y);
-            if map.visible_tiles[idx] {
-                ctx.set(pos.x, pos.y, render.fg, render.bg, render.glyph);
-            }
-        }
-
-        gui::draw_ui(&self.ecs, ctx);
-    }
-}
-
-fn main() -> rltk::BError {
-    use rltk::RltkBuilder;
-    let mut context = RltkBuilder::simple80x50()
-        .with_title("Roguelike Tutorial")
-        .build()?;
-    context.with_post_scanlines(true);
-    let mut gs = State {
-        ecs: World::new()
-    };
-    gs.ecs.register::<Position>();
-    gs.ecs.register::<Renderable>();
-    gs.ecs.register::<Player>();
-    gs.ecs.register::<Viewshed>();
-    gs.ecs.register::<Monster>();
-    gs.ecs.register::<Name>();
-    gs.ecs.register::<BlocksTile>();
-    gs.ecs.register::<CombatStats>();
-    gs.ecs.register::<WantsToMelee>();
-    gs.ecs.register::<SufferDamage>();
-    gs.ecs.register::<Item>();
-    gs.ecs.register::<Potion>();
-    gs.ecs.register::<InBackpack>();
-    gs.ecs.register::<WantsToPickupItem>();
-    gs.ecs.register::<WantsToDrinkPotion>();
-
-    let map = Map::new();
-    let (player_x, player_y) = map.rooms[0].center();
-
-    let player_entity = spawner::player(&mut gs.ecs, player_x, player_y);
-
-    gs.ecs.insert(rltk::RandomNumberGenerator::new());
-    for room in map.rooms.iter().skip(1) {
-        spawner::spawn_room(&mut gs.ecs, room);
-    }
-    gs.ecs.insert(player_entity);
-
-    gs.ecs.insert(map);
+fn setup(
+    asset_server: Res<AssetServer>,
+    mut texture_atlases: ResMut<Assets<TextureAtlas>>,
+    mut commands: Commands,
+) {
+    // Setup the sprite sheet
+    let texture_handle = asset_server.load("terminal8x8_transparent.png");
+    let texture_atlas = TextureAtlas::from_grid(texture_handle, Vec2::new(8.0, 8.0), 16, 16, None, None);
+    let texture_atlas_handle = texture_atlases.add(texture_atlas);
+    // add sprite atlas as resource
+    commands.insert_resource(CharsetAsset { atlas: texture_atlas_handle.clone() });
     
-    gs.ecs.insert(Point::new(player_x, player_y));
+    // Add a 2D Camera
+    let mut cam = Camera2dBundle::default();
+    cam.transform.scale = Vec3::new(0.5, 0.5, 1.0);
+    commands.spawn((MainCamera, cam));
+}
 
-    gs.ecs.insert(RunState::PreRun);
-    gs.ecs.insert(gamelog::GameLog {
-        entries: vec!["Welcome to Rusty Roguelike".to_string()]
-    });
 
-    rltk::main_loop(context, gs)
+fn switch_state(
+    mut state: ResMut<NextState<GameState>>,
+) {
+    state.set(GameState::PlayerTurn);
+}
+
+fn main() {
+    let mut app = App::new();
+
+    app
+        .add_state::<GameState>()
+        .add_plugins(DefaultPlugins.set(
+            // This sets image filtering to nearest
+            // This is done to prevent textures with low resolution (e.g. pixel art) from being blurred
+            // by linear filtering.
+            ImagePlugin::default_nearest(),
+        ));
+
+    #[cfg(feature = "debug")]
+    app.add_plugins(WorldInspectorPlugin::new());
+    app
+        .add_plugins((
+            PlayerPlugin,
+            MapGeneratorPlugin,
+        ))
+        .add_systems(Startup, setup)
+        .add_systems(Update, switch_state.run_if(in_state(GameState::StartScreen)))
+        .add_systems(Update, render)
+        .run();
 }
