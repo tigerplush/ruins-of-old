@@ -15,13 +15,13 @@ pub fn move_player(
 ) {
     for mut position in &mut players {
         let mut direction = Vec2Int::ZERO;
-        if keyboard_input.pressed(KeyCode::A) {
+        if keyboard_input.just_pressed(KeyCode::A) {
             direction = Vec2Int::LEFT;
-        } else if keyboard_input.pressed(KeyCode::D) {
+        } else if keyboard_input.just_pressed(KeyCode::D) {
             direction = Vec2Int::RIGHT;
-        } else if keyboard_input.pressed(KeyCode::W) {
+        } else if keyboard_input.just_pressed(KeyCode::W) {
             direction = Vec2Int::UP;
-        } else if keyboard_input.pressed(KeyCode::S) {
+        } else if keyboard_input.just_pressed(KeyCode::S) {
             direction = Vec2Int::DOWN;
         }
         let new_pos: Vec2Int = direction + position.0;

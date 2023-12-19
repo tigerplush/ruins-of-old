@@ -39,7 +39,11 @@ fn setup(
     commands.spawn((MainCamera, cam));
 }
 
-fn switch_state(mut state: ResMut<NextState<GameState>>) {
+fn switch_to_setup_state(mut state: ResMut<NextState<GameState>>) {
+    state.set(GameState::Setup);
+}
+
+fn switch_to_normal_play(mut state: ResMut<NextState<GameState>>) {
     state.set(GameState::PlayerTurn);
 }
 
@@ -72,7 +76,11 @@ fn main() {
         .add_systems(Startup, setup)
         .add_systems(
             Update,
-            switch_state.run_if(in_state(GameState::StartScreen)),
+            switch_to_setup_state.run_if(in_state(GameState::LoadAssets)),
+        )
+        .add_systems(
+            Update,
+            switch_to_normal_play.run_if(in_state(GameState::Setup)),
         )
         .add_systems(Update, render)
         .run();

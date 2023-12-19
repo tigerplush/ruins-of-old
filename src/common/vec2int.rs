@@ -1,10 +1,11 @@
 use std::ops::Add;
 
 use bevy::prelude::*;
+use rand::Rng;
 
 use super::{HEIGHT, WIDTH};
 
-#[derive(Clone, Copy, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, Hash, PartialEq)]
 pub struct Vec2Int {
     pub x: i32,
     pub y: i32,
@@ -23,7 +24,7 @@ impl Vec2Int {
 
     pub const DIRECTIONS: [Self; 4] = [Self::LEFT, Self::RIGHT, Self::UP, Self::DOWN];
 
-    pub fn to_world(&self) -> Vec3 {
+    pub fn to_world(self) -> Vec3 {
         Vec3::new(self.x as f32 * WIDTH, self.y as f32 * HEIGHT, 1.0)
     }
 
@@ -32,6 +33,12 @@ impl Vec2Int {
         let y = other.y - self.y;
         let squared = x.pow(2) + y.pow(2);
         (squared as f32).sqrt()
+    }
+
+    pub fn random_direction() -> Self {
+        let mut rng = rand::thread_rng();
+        let index = rng.gen_range(0..Self::DIRECTIONS.len());
+        Self::DIRECTIONS[index]
     }
 }
 

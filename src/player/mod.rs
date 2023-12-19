@@ -19,7 +19,7 @@ pub struct Player;
 
 impl Plugin for PlayerPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnExit(GameState::StartScreen), spawn_player)
+        app.add_systems(OnEnter(GameState::Setup), spawn_player)
             .add_systems(PostUpdate, render_camera)
             .add_systems(Update, move_player.run_if(in_state(GameState::PlayerTurn)));
     }

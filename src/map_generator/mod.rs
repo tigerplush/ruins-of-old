@@ -12,7 +12,7 @@ pub struct MapGeneratorPlugin;
 
 impl Plugin for MapGeneratorPlugin {
     fn build(&self, app: &mut App) {
-        app.add_systems(OnEnter(GameState::StartScreen), generate_map)
+        app.add_systems(OnEnter(GameState::LoadAssets), generate_map)
             .add_systems(Update, (
                 check_player_viewshed,
                 render_player_viewshed,

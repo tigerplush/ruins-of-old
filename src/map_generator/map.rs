@@ -4,7 +4,7 @@ use bevy::prelude::*;
 use rand::Rng;
 use bresenham::*;
 
-use crate::common::{rect::Rect, TileType, WIDTH, HEIGHT, Vec2Int};
+use crate::common::{rect::Rect, TileType, Vec2Int};
 
 #[derive(Resource)]
 pub struct Map {
