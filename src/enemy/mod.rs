@@ -1,4 +1,4 @@
-use std::{collections::{HashMap, BinaryHeap}, cmp::Ordering};
+use std::{collections::{HashMap, BinaryHeap, VecDeque}, cmp::Ordering};
 
 use bevy::prelude::*;
 
@@ -52,15 +52,18 @@ fn spawn_enemies(
 
 fn plan_enemy_actions(
     map: Res<Map>,
-    enemies: Query<(&Name, &Viewshed, &Position), With<Enemy>>,
-    players: Query<&Position, With<Player>>
+    enemies: Query<(&Viewshed, &Position, Entity), With<Enemy>>,
+    players: Query<&Position, With<Player>>,
+    mut commands: Commands,
 ) {
     let Ok(player) = players.get_single() else {
         return;
     };
-    for (name, viewshed, position) in &enemies {
+    for (viewshed, position, entity) in &enemies {
         if map.is_visible(position.0, player.0) && position.0.distance(&player.0) < viewshed.range {
-            debug!("{} considers their own existence", name);
+            if let Some(path) = calculate_path(position.0, player.0, &map) {
+                commands.entity(entity).insert(path);
+            }
         }
     }
 }
@@ -81,13 +84,23 @@ fn transition_to_player_state(
     state.set(GameState::PlayerTurn);
 }
 
-fn act_enemy_actions() {
-
+fn act_enemy_actions(
+    mut enemies: Query<(&mut Position, &mut Path, Entity), With<Enemy>>,
+    mut commands: Commands,
+) {
+    for (mut pos, mut path, entity) in &mut enemies {
+        if let Some(point) = path.waypoints.pop_front() {
+            pos.0 = point;
+        }
+        else {
+            commands.entity(entity).remove::<Path>();
+        }
+    }
 }
 
 fn enemy_wander(
     map: Res<Map>,
-    mut enemies: Query<&mut Position, With<Enemy>>,
+    mut enemies: Query<&mut Position, (With<Enemy>, Without<Path>)>,
 ) {
     for mut enemy in &mut enemies {
         let next_direction = enemy.0 + Vec2Int::random_direction();
@@ -98,9 +111,9 @@ fn enemy_wander(
     }
 }
 
-#[derive(Debug, PartialEq)]
+#[derive(Component, Debug, PartialEq)]
 struct Path {
-    waypoints: Vec<Vec2Int>,
+    waypoints: VecDeque<Vec2Int>,
 }
 
 #[derive(Copy, Clone, Eq, PartialEq)]
@@ -160,7 +173,7 @@ fn calculate_path(start: Vec2Int, target: Vec2Int, map: &Map) -> Option<Path> {
     let mut current = target;
     while let Some(previous) = came_from.get(&current) {
         if let Some(p) = previous {
-            waypoints.push(*p);
+            waypoints.push(current);
             current = *p;
         }
         else {
@@ -186,6 +199,7 @@ fn test_pathfinding() {
     let start = map.rooms.iter().nth(0).unwrap().center();
     let target = map.rooms.iter().nth(1).unwrap().center();
     let path = calculate_path(Vec2Int::new(start.0, start.1), Vec2Int::new(target.0, target.1), &map);
+    println!("start: {:?}, end: {:?}", start, target);
     println!("{:?}", path);
     assert!(path.is_some());
     let dead_end = Vec2Int::new(0, 0);
