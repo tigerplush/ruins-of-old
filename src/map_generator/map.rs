@@ -107,6 +107,13 @@ impl Map {
         (y * self.width) as usize + x as usize
     }
 
+    pub fn is_occupied(&self, idx: usize) -> bool {
+        if self.tiles[idx] == TileType::Wall {
+            return true;
+        }
+        false
+    }
+
     pub fn idx_xy(&self, idx: usize) -> (i32, i32) {
         let x = idx as i32 % self.width;
         let y = idx as i32 / self.width;
